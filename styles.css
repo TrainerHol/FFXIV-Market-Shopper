@@ -1,0 +1,15 @@
+.category-group {
+  margin: 10px 0;
+}
+
+.category-group h4 {
+  margin: 5px 0;
+  color: #666;
+  font-size: 0.9em;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 3px;
+}
+
+.category-group .item-entry {
+  margin-left: 10px;
+}

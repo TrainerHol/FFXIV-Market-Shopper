@@ -22,6 +22,8 @@ class MarketShopper {
     this.datacenters = ["Aether", "Crystal", "Primal", "Dynamis", "Chaos", "Light", "Materia", "Elemental", "Gaia", "Mana", "Meteor"];
     this.initializeUI();
     this.loadingOverlay = document.getElementById("loadingOverlay");
+    this.npcItems = null;
+    this.loadNpcItems();
   }
 
   initializeUI() {
@@ -92,9 +94,9 @@ class MarketShopper {
     try {
       this.showLoading();
       const data = await this.readFile(file);
-      const items = this.parseItems(data);
-      const results = await this.fetchPrices(items, selectedDatacenters);
-      this.displayResults(results);
+      const { marketItems, npcItems } = this.parseItems(data);
+      const results = await this.fetchPrices(marketItems, selectedDatacenters);
+      this.displayResults({ ...results, npcItems });
     } catch (error) {
       console.error("Error processing file:", error);
       alert("Error processing file. Please check console for details.");
@@ -114,13 +116,18 @@ class MarketShopper {
 
   parseItems(data) {
     const items = new Map();
+    const npcItems = new Map();
 
     const addItem = (furniture) => {
       const id = furniture.itemId;
-      if (items.has(id)) {
-        items.get(id).quantity += 1;
+      const isNpcItem = this.isNpcItem(furniture.name);
+
+      const targetMap = isNpcItem ? npcItems : items;
+
+      if (targetMap.has(id)) {
+        targetMap.get(id).quantity += 1;
       } else {
-        items.set(id, new Item(furniture.name, id, 1));
+        targetMap.set(id, new Item(furniture.name, id, 1));
       }
 
       // Recursively add attachments if they exist
@@ -135,7 +142,20 @@ class MarketShopper {
     // Process fixtures (only Light, Floor, Wall)
     data.interiorFixture.filter((f) => ["Light", "Floor", "Wall"].includes(f.type)).forEach(addItem);
 
-    return items;
+    return { marketItems: items, npcItems: npcItems };
+  }
+
+  isNpcItem(itemName) {
+    for (const [vendor, categories] of Object.entries(this.npcItems)) {
+      if (Array.isArray(categories)) {
+        if (categories.includes(itemName)) return vendor;
+      } else {
+        for (const items of Object.values(categories)) {
+          if (items.includes(itemName)) return vendor;
+        }
+      }
+    }
+    return false;
   }
 
   async fetchPrices(items, datacenters) {
@@ -143,15 +163,43 @@ class MarketShopper {
     const itemIds = Array.from(items.keys()).join(",");
     const maxQuantity = Math.max(...Array.from(items.values()).map((item) => item.quantity));
 
-    // Fetch data from all selected datacenters
-    for (const dc of datacenters) {
-      const url = `https://universalis.app/api/v2/${dc}/${itemIds}?listings=${maxQuantity}&entries=0`;
-      try {
-        const response = await fetch(url);
-        const data = await response.json();
-        results.set(dc, data);
-      } catch (error) {
-        console.error(`Error fetching data for ${dc}:`, error);
+    // Rate limiting settings
+    const MAX_CONCURRENT = 8; // Maximum concurrent connections
+    const RATE_LIMIT = 25; // Requests per second
+    const MIN_DELAY = 1000 / RATE_LIMIT; // Minimum delay between requests in ms
+
+    // Create chunks of datacenters to process concurrently
+    const chunks = [];
+    for (let i = 0; i < datacenters.length; i += MAX_CONCURRENT) {
+      chunks.push(datacenters.slice(i, i + MAX_CONCURRENT));
+    }
+
+    // Process each chunk of datacenters
+    for (const chunk of chunks) {
+      // Create an array of promises for the current chunk
+      const promises = chunk.map(async (dc) => {
+        const url = `https://universalis.app/api/v2/${dc}/${itemIds}?listings=${maxQuantity}&entries=0`;
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const data = await response.json();
+          results.set(dc, data);
+        } catch (error) {
+          console.error(`Error fetching data for ${dc}:`, error);
+        }
+
+        // Add delay between requests
+        await new Promise((resolve) => setTimeout(resolve, MIN_DELAY));
+      });
+
+      // Wait for all promises in the current chunk to complete
+      await Promise.all(promises);
+
+      // Add additional delay between chunks to ensure we stay under rate limit
+      if (chunks.length > 1) {
+        await new Promise((resolve) => setTimeout(resolve, MIN_DELAY * 2));
       }
     }
 
@@ -275,7 +323,7 @@ class MarketShopper {
     return { items, bestPrices };
   }
 
-  displayResults({ items, bestPrices }) {
+  displayResults({ items, bestPrices, npcItems }) {
     const output = document.getElementById("output");
     output.innerHTML = "";
 
@@ -372,6 +420,108 @@ class MarketShopper {
       });
     });
 
+    // Add NPC Items section
+    const npcSection = document.createElement("div");
+    npcSection.className = "datacenter-results";
+
+    const npcHeader = document.createElement("div");
+    npcHeader.className = "datacenter-header";
+    npcHeader.innerHTML = `
+      <div class="header-content">
+        <span class="collapse-icon">▼</span>
+        <h2>NPC Items</h2>
+      </div>
+    `;
+
+    const npcContent = document.createElement("div");
+    npcContent.className = "datacenter-content";
+
+    const npcCardsContainer = document.createElement("div");
+    npcCardsContainer.className = "world-cards-container";
+
+    // Group NPC items by vendor
+    const vendorGroups = new Map();
+    if (npcItems) {
+      npcItems.forEach((item) => {
+        const vendor = this.isNpcItem(item.name);
+        if (!vendorGroups.has(vendor)) {
+          vendorGroups.set(vendor, []);
+        }
+        vendorGroups.get(vendor).push(item);
+      });
+
+      vendorGroups.forEach((items, vendor) => {
+        const vendorCard = document.createElement("div");
+        vendorCard.className = "world-card";
+
+        if (vendor === "Housing Merchant") {
+          // Group items by category for Housing Merchant
+          const categoryGroups = new Map();
+          items.forEach((item) => {
+            // Find which category this item belongs to
+            for (const [category, itemList] of Object.entries(this.npcItems[vendor])) {
+              if (itemList.includes(item.name)) {
+                if (!categoryGroups.has(category)) {
+                  categoryGroups.set(category, []);
+                }
+                categoryGroups.get(category).push(item);
+                break;
+              }
+            }
+          });
+
+          vendorCard.innerHTML = `
+            <h3>${vendor}</h3>
+            <div class="items-list">
+              ${Array.from(categoryGroups.entries())
+                .map(
+                  ([category, categoryItems]) => `
+                <div class="category-group">
+                  <h4>${category}</h4>
+                  ${categoryItems
+                    .map(
+                      (item) => `
+                    <div class="item-entry">${item.quantity}x ${item.name}</div>
+                  `
+                    )
+                    .join("")}
+                </div>
+              `
+                )
+                .join("")}
+            </div>
+          `;
+        } else {
+          // Regular vendor display without categories
+          vendorCard.innerHTML = `
+            <h3>${vendor}</h3>
+            <div class="items-list">
+              ${items
+                .map(
+                  (item) => `
+                <div class="item-entry">${item.quantity}x ${item.name}</div>
+              `
+                )
+                .join("")}
+            </div>
+          `;
+        }
+
+        npcCardsContainer.appendChild(vendorCard);
+      });
+
+      npcContent.appendChild(npcCardsContainer);
+      npcSection.appendChild(npcHeader);
+      npcSection.appendChild(npcContent);
+      container.appendChild(npcSection);
+
+      // Add collapse functionality for NPC section
+      npcHeader.addEventListener("click", () => {
+        npcContent.style.display = npcContent.style.display === "none" ? "block" : "none";
+        npcHeader.querySelector(".collapse-icon").textContent = npcContent.style.display === "none" ? "▶" : "▼";
+      });
+    }
+
     output.appendChild(container);
 
     // Add timestamp and summary
@@ -388,6 +538,16 @@ class MarketShopper {
         </div>
     `;
     output.appendChild(timestamp);
+  }
+
+  async loadNpcItems() {
+    try {
+      const response = await fetch("npc_items.json");
+      this.npcItems = await response.json();
+    } catch (error) {
+      console.error("Error loading NPC items:", error);
+      this.npcItems = {};
+    }
   }
 }
 
