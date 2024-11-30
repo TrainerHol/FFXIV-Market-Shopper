@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FFXIV Market Shopper</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .region-select {
+        margin: 20px 0;
+        padding: 15px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .region-select label {
+        display: inline-block;
+        margin-right: 15px;
+        padding: 5px 10px;
+      }
+      .file-input {
+        margin: 20px 0;
+        padding: 15px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      button {
+        padding: 10px 20px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-left: 10px;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      .datacenter-results {
+        margin: 20px 0;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+      .datacenter-header {
+        background: #4caf50;
+        color: white;
+        padding: 15px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .header-content {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .header-content h2 {
+        margin: 0;
+        flex-grow: 1;
+      }
+      .collapse-icon {
+        font-size: 12px;
+        margin-right: 10px;
+      }
+      .datacenter-total {
+        font-weight: bold;
+      }
+      .datacenter-content {
+        padding: 20px;
+      }
+      .world-cards-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+        padding: 10px;
+      }
+      .world-card {
+        background: #f8f8f8;
+        border-radius: 6px;
+        padding: 15px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+      .world-card h3 {
+        margin: 0 0 10px 0;
+        color: #333;
+      }
+      .world-total {
+        color: #666;
+        font-weight: bold;
+        margin: 10px 0;
+      }
+      .items-list {
+        margin-top: 10px;
+      }
+      .item-entry {
+        padding: 5px 0;
+        border-bottom: 1px solid #eee;
+      }
+      .item-entry:last-child {
+        border-bottom: none;
+      }
+      .summary-section {
+        margin-top: 20px;
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .total-cost {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #4caf50;
+      }
+      .timestamp {
+        color: #666;
+        font-size: 0.9em;
+      }
+      .optimize-controls {
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+      }
+      .optimize-option {
+        margin: 10px 0;
+      }
+      .optimize-details {
+        margin-left: 25px;
+        margin-top: 10px;
+        color: #666;
+        line-height: 2;
+      }
+      .optimize-details label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .optimize-details input[type="number"] {
+        margin: 0 5px;
+      }
+      .help-text {
+        font-size: 0.9em;
+        color: #888;
+        margin-top: 10px;
+        font-style: italic;
+        line-height: 1.4;
+      }
+      input[type="number"] {
+        padding: 3px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .threshold-inputs {
+        margin-top: 10px;
+        margin-left: 20px;
+      }
+
+      .threshold-input {
+        margin: 5px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .threshold-input span {
+        font-weight: bold;
+        color: #666;
+      }
+
+      .threshold-input input[type="number"] {
+        margin: 0 5px;
+      }
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+      }
+
+      .spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #4caf50;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      .loading-text {
+        color: white;
+        margin-top: 20px;
+        font-size: 1.2em;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loadingOverlay" class="loading-overlay" style="display: none">
+      <div class="spinner"></div>
+      <div class="loading-text">Processing...</div>
+    </div>
+    <h1>FFXIV Market Shopper</h1>
+    <p>Upload your .json and get an automatically generated shopping list of best prices across multiple data centers</p>
+
+    <div class="region-select">
+      <h3>Select Data Centers:</h3>
+      <div id="datacenterCheckboxes"></div>
+    </div>
+
+    <div class="file-input">
+      <input type="file" id="fileInput" accept=".json" />
+      <button id="processButton">Process</button>
+    </div>
+
+    <div id="output"></div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
