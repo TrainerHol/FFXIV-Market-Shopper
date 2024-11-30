@@ -147,11 +147,15 @@ class MarketShopper {
 
   isNpcItem(itemName) {
     for (const [vendor, categories] of Object.entries(this.npcItems)) {
-      if (Array.isArray(categories)) {
-        if (categories.includes(itemName)) return vendor;
+      if (categories.items) {
+        // Direct items array
+        const item = categories.items.find((item) => item.name === itemName);
+        if (item) return { vendor, price: item.price };
       } else {
-        for (const items of Object.values(categories)) {
-          if (items.includes(itemName)) return vendor;
+        // Categorized items
+        for (const category of Object.values(categories)) {
+          const item = category.items.find((item) => item.name === itemName);
+          if (item) return { vendor, price: item.price };
         }
       }
     }
@@ -479,11 +483,14 @@ class MarketShopper {
                 <div class="category-group">
                   <h4>${category}</h4>
                   ${categoryItems
-                    .map(
-                      (item) => `
-                    <div class="item-entry">${item.quantity}x ${item.name}</div>
-                  `
-                    )
+                    .map((item) => {
+                      const npcInfo = this.isNpcItem(item.name);
+                      return `
+                          <div class="item-entry">
+                            ${item.quantity}x ${item.name} (${npcInfo.price.toLocaleString()} gil each)
+                          </div>
+                        `;
+                    })
                     .join("")}
                 </div>
               `
@@ -497,11 +504,14 @@ class MarketShopper {
             <h3>${vendor}</h3>
             <div class="items-list">
               ${items
-                .map(
-                  (item) => `
-                <div class="item-entry">${item.quantity}x ${item.name}</div>
-              `
-                )
+                .map((item) => {
+                  const npcInfo = this.isNpcItem(item.name);
+                  return `
+                      <div class="item-entry">
+                        ${item.quantity}x ${item.name} (${npcInfo.price.toLocaleString()} gil each)
+                      </div>
+                    `;
+                })
                 .join("")}
             </div>
           `;
@@ -526,16 +536,30 @@ class MarketShopper {
 
     // Add timestamp and summary
     const timestamp = document.createElement("div");
-    const totalCost = Array.from(datacenterGroups.values())
+    const mbTotalCost = Array.from(datacenterGroups.values())
       .flatMap((worlds) => Array.from(worlds.values()))
       .flatMap((items) => items)
       .reduce((sum, item) => sum + item.price, 0);
 
+    // Calculate NPC items cost
+    let npcTotalCost = 0;
+    if (npcItems) {
+      npcItems.forEach((item) => {
+        const npcInfo = this.isNpcItem(item.name);
+        if (npcInfo) {
+          npcTotalCost += npcInfo.price * item.quantity;
+        }
+      });
+    }
+
+    // Update the timestamp section to include both costs
     timestamp.innerHTML = `
-        <div class="summary-section">
-            <p class="total-cost">Total Cost Across All Data Centers: ${totalCost.toLocaleString()} gil</p>
-            <p class="timestamp">Generated on ${new Date().toLocaleString()}</p>
-        </div>
+      <div class="summary-section">
+        <p class="total-cost">Market Board Total: ${mbTotalCost.toLocaleString()} gil</p>
+        <p class="total-cost">NPC Vendor Total: ${npcTotalCost.toLocaleString()} gil</p>
+        <p class="total-cost">Grand Total: ${(mbTotalCost + npcTotalCost).toLocaleString()} gil</p>
+        <p class="timestamp">Generated on ${new Date().toLocaleString()}</p>
+      </div>
     `;
     output.appendChild(timestamp);
   }
