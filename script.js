@@ -331,237 +331,249 @@ class MarketShopper {
     const output = document.getElementById("output");
     output.innerHTML = "";
 
-    // Group by datacenter and world
-    const datacenterGroups = new Map();
+    // Create tabs
+    const tabsContainer = document.createElement("div");
+    tabsContainer.style.cssText = "margin: 20px 0; border-bottom: 1px solid #ddd;";
 
-    bestPrices.forEach((listings, itemId) => {
-      const item = items.get(itemId);
-      listings.forEach((listing) => {
-        if (!datacenterGroups.has(listing.datacenter)) {
-          datacenterGroups.set(listing.datacenter, new Map());
-        }
-        if (!datacenterGroups.get(listing.datacenter).has(listing.world)) {
-          datacenterGroups.get(listing.datacenter).set(listing.world, []);
-        }
-        datacenterGroups.get(listing.datacenter).get(listing.world).push({
-          name: item.name,
-          price: listing.price,
-          quantity: 1,
+    const marketTab = document.createElement("button");
+    marketTab.textContent = "Market Items";
+    marketTab.style.cssText = "padding: 10px 20px; margin-right: 10px; border: none; background: #4caf50; color: white; cursor: pointer; border-radius: 4px 4px 0 0;";
+
+    const npcTab = document.createElement("button");
+    npcTab.textContent = "NPC Items";
+    npcTab.style.cssText = "padding: 10px 20px; border: none; background: #ddd; color: black; cursor: pointer; border-radius: 4px 4px 0 0;";
+
+    tabsContainer.appendChild(marketTab);
+    tabsContainer.appendChild(npcTab);
+    output.appendChild(tabsContainer);
+
+    // Create content containers
+    const marketContent = document.createElement("div");
+    const npcContent = document.createElement("div");
+    npcContent.style.display = "none";
+
+    // Market items content
+    if (items.size === 0) {
+      marketContent.innerHTML = "<p>No market board items found.</p>";
+    } else {
+      // Group by datacenter and world
+      const datacenterGroups = new Map();
+
+      bestPrices.forEach((listings, itemId) => {
+        const item = items.get(itemId);
+        listings.forEach((listing) => {
+          if (!datacenterGroups.has(listing.datacenter)) {
+            datacenterGroups.set(listing.datacenter, new Map());
+          }
+          if (!datacenterGroups.get(listing.datacenter).has(listing.world)) {
+            datacenterGroups.get(listing.datacenter).set(listing.world, []);
+          }
+          datacenterGroups.get(listing.datacenter).get(listing.world).push({
+            name: item.name,
+            price: listing.price,
+            quantity: 1,
+          });
         });
       });
-    });
 
-    // Create container for all datacenters
-    const container = document.createElement("div");
-    container.className = "datacenter-container";
+      // Create container for all datacenters
+      const container = document.createElement("div");
+      container.className = "datacenter-container";
 
-    // Display results grouped by datacenter and world
-    datacenterGroups.forEach((worlds, datacenter) => {
-      const dcDiv = document.createElement("div");
-      dcDiv.className = "datacenter-results";
+      // Display results grouped by datacenter and world
+      datacenterGroups.forEach((worlds, datacenter) => {
+        const dcDiv = document.createElement("div");
+        dcDiv.className = "datacenter-results";
 
-      // Calculate total cost for this datacenter
-      const datacenterTotalCost = Array.from(worlds.values())
-        .flatMap((items) => items)
-        .reduce((sum, item) => sum + item.price, 0);
+        // Calculate total cost for this datacenter
+        const datacenterTotalCost = Array.from(worlds.values())
+          .flatMap((items) => items)
+          .reduce((sum, item) => sum + item.price, 0);
 
-      // Create header with collapse button and total
-      const header = document.createElement("div");
-      header.className = "datacenter-header";
-      header.innerHTML = `
-            <div class="header-content">
-                <span class="collapse-icon">▼</span>
-                <h2>Data Center: ${datacenter}</h2>
-                <span class="datacenter-total">${datacenterTotalCost.toLocaleString()} gil</span>
-            </div>
-        `;
-
-      // Create content container
-      const contentDiv = document.createElement("div");
-      contentDiv.className = "datacenter-content";
-
-      // Create world cards container
-      const worldCardsContainer = document.createElement("div");
-      worldCardsContainer.className = "world-cards-container";
-
-      worlds.forEach((items, world) => {
-        const worldCard = document.createElement("div");
-        worldCard.className = "world-card";
-
-        // Group identical items
-        const groupedItems = new Map();
-        items.forEach((item) => {
-          const key = `${item.name}-${item.price}`;
-          if (!groupedItems.has(key)) {
-            groupedItems.set(key, { ...item, quantity: 0 });
-          }
-          groupedItems.get(key).quantity++;
-        });
-
-        const totalCost = Array.from(groupedItems.values()).reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-        worldCard.innerHTML = `
-                <h3>${world}</h3>
-                <p class="world-total">Total Cost: ${totalCost.toLocaleString()} gil</p>
-                <div class="items-list">
-                    ${Array.from(groupedItems.values())
-                      .map((item) => `<div class="item-entry">${item.quantity}x ${item.name} (${item.price.toLocaleString()} gil each)</div>`)
-                      .join("")}
+        // Create header with collapse button and total
+        const header = document.createElement("div");
+        header.className = "datacenter-header";
+        header.innerHTML = `
+                <div class="header-content">
+                    <span class="collapse-icon">▼</span>
+                    <h2>Data Center: ${datacenter}</h2>
+                    <span class="datacenter-total">${datacenterTotalCost.toLocaleString()} gil</span>
                 </div>
             `;
-        worldCardsContainer.appendChild(worldCard);
-      });
 
-      contentDiv.appendChild(worldCardsContainer);
-      dcDiv.appendChild(header);
-      dcDiv.appendChild(contentDiv);
-      container.appendChild(dcDiv);
+        // Create content container
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "datacenter-content";
 
-      // Add click handler for collapse/expand
-      header.addEventListener("click", () => {
-        contentDiv.style.display = contentDiv.style.display === "none" ? "block" : "none";
-        header.querySelector(".collapse-icon").textContent = contentDiv.style.display === "none" ? "▶" : "▼";
-      });
-    });
+        // Create world cards container
+        const worldCardsContainer = document.createElement("div");
+        worldCardsContainer.className = "world-cards-container";
 
-    // Add NPC Items section
-    const npcSection = document.createElement("div");
-    npcSection.className = "datacenter-results";
+        worlds.forEach((items, world) => {
+          const worldCard = document.createElement("div");
+          worldCard.className = "world-card";
 
-    const npcHeader = document.createElement("div");
-    npcHeader.className = "datacenter-header";
-    npcHeader.innerHTML = `
-      <div class="header-content">
-        <span class="collapse-icon">▼</span>
-        <h2>NPC Items</h2>
-      </div>
-    `;
-
-    const npcContent = document.createElement("div");
-    npcContent.className = "datacenter-content";
-
-    const npcCardsContainer = document.createElement("div");
-    npcCardsContainer.className = "world-cards-container";
-
-    // Group NPC items by vendor
-    const vendorGroups = new Map();
-    if (npcItems) {
-      npcItems.forEach((item) => {
-        const vendor = this.isNpcItem(item.name);
-        if (!vendorGroups.has(vendor)) {
-          vendorGroups.set(vendor, []);
-        }
-        vendorGroups.get(vendor).push(item);
-      });
-
-      vendorGroups.forEach((items, vendor) => {
-        const vendorCard = document.createElement("div");
-        vendorCard.className = "world-card";
-
-        if (vendor === "Housing Merchant") {
-          // Group items by category for Housing Merchant
-          const categoryGroups = new Map();
+          // Group identical items
+          const groupedItems = new Map();
           items.forEach((item) => {
-            // Find which category this item belongs to
-            for (const [category, itemList] of Object.entries(this.npcItems[vendor])) {
-              if (itemList.includes(item.name)) {
-                if (!categoryGroups.has(category)) {
-                  categoryGroups.set(category, []);
-                }
-                categoryGroups.get(category).push(item);
-                break;
-              }
+            const key = `${item.name}-${item.price}`;
+            if (!groupedItems.has(key)) {
+              groupedItems.set(key, { ...item, quantity: 0 });
             }
+            groupedItems.get(key).quantity++;
           });
 
-          vendorCard.innerHTML = `
-            <h3>${vendor}</h3>
-            <div class="items-list">
-              ${Array.from(categoryGroups.entries())
-                .map(
-                  ([category, categoryItems]) => `
-                <div class="category-group">
-                  <h4>${category}</h4>
-                  ${categoryItems
-                    .map((item) => {
-                      const npcInfo = this.isNpcItem(item.name);
-                      return `
-                          <div class="item-entry">
-                            ${item.quantity}x ${item.name} (${npcInfo.price.toLocaleString()} gil each)
-                          </div>
-                        `;
-                    })
-                    .join("")}
-                </div>
-              `
-                )
-                .join("")}
-            </div>
-          `;
-        } else {
-          // Regular vendor display without categories
-          vendorCard.innerHTML = `
-            <h3>${vendor}</h3>
-            <div class="items-list">
-              ${items
-                .map((item) => {
-                  const npcInfo = this.isNpcItem(item.name);
-                  return `
-                      <div class="item-entry">
-                        ${item.quantity}x ${item.name} (${npcInfo.price.toLocaleString()} gil each)
-                      </div>
-                    `;
-                })
-                .join("")}
-            </div>
-          `;
-        }
+          const totalCost = Array.from(groupedItems.values()).reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-        npcCardsContainer.appendChild(vendorCard);
+          worldCard.innerHTML = `
+                    <h3>${world}</h3>
+                    <p class="world-total">Total Cost: ${totalCost.toLocaleString()} gil</p>
+                    <div class="items-list">
+                        ${Array.from(groupedItems.values())
+                          .map((item) => `<div class="item-entry">${item.quantity}x ${item.name} (${item.price.toLocaleString()} gil each)</div>`)
+                          .join("")}
+                    </div>
+                `;
+          worldCardsContainer.appendChild(worldCard);
+        });
+
+        contentDiv.appendChild(worldCardsContainer);
+        dcDiv.appendChild(header);
+        dcDiv.appendChild(contentDiv);
+        container.appendChild(dcDiv);
+
+        // Add click handler for collapse/expand
+        header.addEventListener("click", () => {
+          contentDiv.style.display = contentDiv.style.display === "none" ? "block" : "none";
+          header.querySelector(".collapse-icon").textContent = contentDiv.style.display === "none" ? "▶" : "▼";
+        });
       });
 
-      npcContent.appendChild(npcCardsContainer);
-      npcSection.appendChild(npcHeader);
-      npcSection.appendChild(npcContent);
-      container.appendChild(npcSection);
-
-      // Add collapse functionality for NPC section
-      npcHeader.addEventListener("click", () => {
-        npcContent.style.display = npcContent.style.display === "none" ? "block" : "none";
-        npcHeader.querySelector(".collapse-icon").textContent = npcContent.style.display === "none" ? "▶" : "▼";
-      });
+      marketContent.appendChild(container);
     }
 
-    output.appendChild(container);
+    // NPC items content
+    if (npcItems.size === 0) {
+      npcContent.innerHTML = "<p>No NPC vendor items found.</p>";
+    } else {
+      const npcList = document.createElement("div");
+      let totalNpcCost = 0;
 
-    // Add timestamp and summary
-    const timestamp = document.createElement("div");
-    const mbTotalCost = Array.from(datacenterGroups.values())
-      .flatMap((worlds) => Array.from(worlds.values()))
-      .flatMap((items) => items)
-      .reduce((sum, item) => sum + item.price, 0);
-
-    // Calculate NPC items cost
-    let npcTotalCost = 0;
-    if (npcItems) {
+      // Group items by vendor and category
+      const vendorGroups = new Map();
       npcItems.forEach((item) => {
         const npcInfo = this.isNpcItem(item.name);
         if (npcInfo) {
-          npcTotalCost += npcInfo.price * item.quantity;
+          if (!vendorGroups.has(npcInfo.vendor)) {
+            vendorGroups.set(npcInfo.vendor, new Map()); // Map for categories
+          }
+
+          // Find the category for this item
+          let category = "General";
+          for (const [cat, items] of Object.entries(this.npcItems[npcInfo.vendor])) {
+            if (items.items && items.items.find((i) => i.name === item.name)) {
+              category = cat;
+              break;
+            }
+          }
+
+          if (!vendorGroups.get(npcInfo.vendor).has(category)) {
+            vendorGroups.get(npcInfo.vendor).set(category, []);
+          }
+
+          vendorGroups
+            .get(npcInfo.vendor)
+            .get(category)
+            .push({
+              ...item,
+              price: npcInfo.price,
+              totalCost: npcInfo.price * item.quantity,
+            });
+          totalNpcCost += npcInfo.price * item.quantity;
         }
       });
+
+      // Create vendor sections
+      vendorGroups.forEach((categories, vendor) => {
+        const vendorSection = document.createElement("div");
+        vendorSection.className = "datacenter-results";
+
+        const vendorTotal = Array.from(categories.values())
+          .flat()
+          .reduce((sum, item) => sum + item.totalCost, 0);
+
+        // Vendor header with collapse button
+        const header = document.createElement("div");
+        header.className = "datacenter-header";
+        header.innerHTML = `
+                <div class="header-content">
+                    <span class="collapse-icon">▼</span>
+                    <h2>Vendor: ${vendor}</h2>
+                    <span class="datacenter-total">${vendorTotal.toLocaleString()} gil</span>
+                </div>
+            `;
+
+        // Create content container
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "datacenter-content";
+
+        // Create category cards container
+        const categoryCardsContainer = document.createElement("div");
+        categoryCardsContainer.className = "world-cards-container";
+
+        // Create category cards (styled like world cards)
+        categories.forEach((items, category) => {
+          const categoryCard = document.createElement("div");
+          categoryCard.className = "world-card";
+
+          const categoryTotal = items.reduce((sum, item) => sum + item.totalCost, 0);
+
+          categoryCard.innerHTML = `
+                    <h3>${category}</h3>
+                    <p class="world-total">Total Cost: ${categoryTotal.toLocaleString()} gil</p>
+                    <div class="items-list">
+                        ${items.map((item) => `<div class="item-entry">${item.quantity}x ${item.name} (${item.price.toLocaleString()} gil each)</div>`).join("")}
+                    </div>
+                `;
+          categoryCardsContainer.appendChild(categoryCard);
+        });
+
+        contentDiv.appendChild(categoryCardsContainer);
+        vendorSection.appendChild(header);
+        vendorSection.appendChild(contentDiv);
+        npcList.appendChild(vendorSection);
+
+        // Add click handler for collapse/expand
+        header.addEventListener("click", () => {
+          contentDiv.style.display = contentDiv.style.display === "none" ? "block" : "none";
+          header.querySelector(".collapse-icon").textContent = contentDiv.style.display === "none" ? "▶" : "▼";
+        });
+      });
+
+      npcContent.appendChild(npcList);
     }
 
-    // Update the timestamp section to include both costs
-    timestamp.innerHTML = `
-      <div class="summary-section">
-        <p class="total-cost">Market Board Total: ${mbTotalCost.toLocaleString()} gil</p>
-        <p class="total-cost">NPC Vendor Total: ${npcTotalCost.toLocaleString()} gil</p>
-        <p class="total-cost">Grand Total: ${(mbTotalCost + npcTotalCost).toLocaleString()} gil</p>
-        <p class="timestamp">Generated on ${new Date().toLocaleString()}</p>
-      </div>
-    `;
-    output.appendChild(timestamp);
+    output.appendChild(marketContent);
+    output.appendChild(npcContent);
+
+    // Tab switching logic
+    marketTab.addEventListener("click", () => {
+      marketTab.style.background = "#4caf50";
+      marketTab.style.color = "white";
+      npcTab.style.background = "#ddd";
+      npcTab.style.color = "black";
+      marketContent.style.display = "block";
+      npcContent.style.display = "none";
+    });
+
+    npcTab.addEventListener("click", () => {
+      npcTab.style.background = "#4caf50";
+      npcTab.style.color = "white";
+      marketTab.style.background = "#ddd";
+      marketTab.style.color = "black";
+      marketContent.style.display = "none";
+      npcContent.style.display = "block";
+    });
   }
 
   async loadNpcItems() {
