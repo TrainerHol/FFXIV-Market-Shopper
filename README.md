@@ -2,6 +2,8 @@
 
 A web-based tool that helps FFXIV players find the best prices for items across multiple data centers using the Universalis API given a makeplace json.
 
+https://trainerhol.github.io/FFXIV-Market-Shopper/
+
 ## 🌟 Features
 
 - Compare prices across multiple FFXIV data centers simultaneously
