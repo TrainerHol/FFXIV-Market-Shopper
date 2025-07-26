@@ -10,14 +10,16 @@
         max-width: 1200px;
         margin: 0 auto;
         padding: 20px;
-        background-color: #f5f5f5;
+        background-color: #1a1a1a;
+        color: #e0e0e0;
       }
       .region-select {
         margin: 20px 0;
         padding: 15px;
-        background: white;
+        background: #2a2a2a;
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        border: 1px solid #3a3a3a;
       }
       .region-select label {
         display: inline-block;
@@ -27,13 +29,14 @@
       .file-input {
         margin: 20px 0;
         padding: 15px;
-        background: white;
+        background: #2a2a2a;
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        border: 1px solid #3a3a3a;
       }
       button {
         padding: 10px 20px;
-        background-color: #4caf50;
+        background-color: #2d7a31;
         color: white;
         border: none;
         border-radius: 4px;
@@ -41,17 +44,18 @@
         margin-left: 10px;
       }
       button:hover {
-        background-color: #45a049;
+        background-color: #35923a;
       }
       .datacenter-results {
         margin: 20px 0;
-        background: white;
+        background: #2a2a2a;
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         overflow: hidden;
+        border: 1px solid #3a3a3a;
       }
       .datacenter-header {
-        background: #4caf50;
+        background: #2d7a31;
         color: white;
         padding: 15px;
         cursor: pointer;
@@ -83,17 +87,18 @@
         padding: 10px;
       }
       .world-card {
-        background: #f8f8f8;
+        background: #3a3a3a;
         border-radius: 6px;
         padding: 15px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        border: 1px solid #4a4a4a;
       }
       .world-card h3 {
         margin: 0 0 10px 0;
-        color: #333;
+        color: #e0e0e0;
       }
       .world-total {
-        color: #666;
+        color: #b0b0b0;
         font-weight: bold;
         margin: 10px 0;
       }
@@ -102,7 +107,8 @@
       }
       .item-entry {
         padding: 5px 0;
-        border-bottom: 1px solid #eee;
+        border-bottom: 1px solid #4a4a4a;
+        color: #d0d0d0;
       }
       .item-entry:last-child {
         border-bottom: none;
@@ -110,17 +116,18 @@
       .summary-section {
         margin-top: 20px;
         padding: 20px;
-        background: white;
+        background: #2a2a2a;
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        border: 1px solid #3a3a3a;
       }
       .total-cost {
         font-size: 1.2em;
         font-weight: bold;
-        color: #4caf50;
+        color: #5fc964;
       }
       .timestamp {
-        color: #666;
+        color: #999;
         font-size: 0.9em;
       }
       .optimize-controls {
@@ -134,7 +141,7 @@
       .optimize-details {
         margin-left: 25px;
         margin-top: 10px;
-        color: #666;
+        color: #b0b0b0;
         line-height: 2;
       }
       .optimize-details label {
@@ -148,15 +155,17 @@
       }
       .help-text {
         font-size: 0.9em;
-        color: #888;
+        color: #999;
         margin-top: 10px;
         font-style: italic;
         line-height: 1.4;
       }
       input[type="number"] {
         padding: 3px;
-        border: 1px solid #ddd;
+        border: 1px solid #4a4a4a;
         border-radius: 4px;
+        background-color: #3a3a3a;
+        color: #e0e0e0;
       }
       .threshold-inputs {
         margin-top: 10px;
@@ -172,7 +181,7 @@
 
       .threshold-input span {
         font-weight: bold;
-        color: #666;
+        color: #b0b0b0;
       }
 
       .threshold-input input[type="number"] {
@@ -215,6 +224,25 @@
           transform: rotate(360deg);
         }
       }
+
+      h1,
+      h2,
+      h3 {
+        color: #e0e0e0;
+      }
+
+      p {
+        color: #d0d0d0;
+      }
+
+      label {
+        color: #e0e0e0;
+      }
+
+      input[type="radio"],
+      input[type="checkbox"] {
+        margin-right: 5px;
+      }
     </style>
   </head>
   <body>
@@ -223,16 +251,44 @@
       <div class="loading-text">Processing...</div>
     </div>
     <h1>FFXIV Market Shopper</h1>
-    <p>Upload your .json and get an automatically generated shopping list of best prices across multiple data centers</p>
+
+    <div class="mode-toggle" style="margin: 20px 0; padding: 15px; background: #2a2a2a; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); border: 1px solid #3a3a3a">
+      <h3>Shopping Mode:</h3>
+      <label style="margin-right: 20px">
+        <input type="radio" name="shoppingMode" value="normal" checked />
+        Makeplace Shopping
+      </label>
+      <label>
+        <input type="radio" name="shoppingMode" value="seal" />
+        Seal Shopping
+      </label>
+
+      <div id="makeplaceDescription" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #3a3a3a">
+        <p>Upload your .json and get an automatically generated shopping list of best prices across multiple data centers</p>
+      </div>
+
+      <div id="sealDescription" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #3a3a3a">
+        <p>Find the worlds with the most Grand Company turn-in gear available under your price threshold.</p>
+      </div>
+    </div>
 
     <div class="region-select">
       <h3>Select Data Centers:</h3>
       <div id="datacenterCheckboxes"></div>
     </div>
 
-    <div class="file-input">
+    <div class="file-input" id="normalModeUI">
       <input type="file" id="fileInput" accept=".json" />
       <button id="processButton">Process</button>
+    </div>
+
+    <div class="seal-shopping-ui" id="sealModeUI" style="display: none; margin: 20px 0; padding: 15px; background: #2a2a2a; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); border: 1px solid #3a3a3a">
+      <h3>Seal Shopping Settings</h3>
+      <label>
+        Show items under:
+        <input type="number" id="sealPriceThreshold" value="2000" min="1" style="width: 80px; margin: 0 5px" /> gil
+      </label>
+      <button id="sealProcessButton" style="margin-left: 20px">Find Cheap Items</button>
     </div>
 
     <div id="output"></div>

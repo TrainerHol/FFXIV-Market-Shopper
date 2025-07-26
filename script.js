@@ -23,7 +23,23 @@ class MarketShopper {
     this.initializeUI();
     this.loadingOverlay = document.getElementById("loadingOverlay");
     this.npcItems = null;
+    this.itemNames = null;
     this.loadNpcItems();
+    this.loadItemNames();
+    
+    // Grand Company item ranges (sets of 72 items each)
+    this.gcItemRanges = [
+      { start: 42870, end: 42946 }, // archeo kingdom
+      { start: 39630, end: 39703 }, // diadochos
+      { start: 37742, end: 37815 }, // rinascita
+      { start: 35020, end: 35093 }, // classical
+      { start: 31813, end: 31886 },
+      { start: 29404, end: 29477 },
+      { start: 26428, end: 26501 }, // facet
+      { start: 23768, end: 23841 },
+      { start: 21695, end: 21768 }, // nightsteel
+      { start: 18969, end: 19042 }  // chromite
+    ];
   }
 
   initializeUI() {
@@ -65,6 +81,20 @@ class MarketShopper {
     document.querySelector(".region-select").appendChild(optimizeContainer);
 
     document.getElementById("processButton").addEventListener("click", () => this.processFile());
+    document.getElementById("sealProcessButton").addEventListener("click", () => this.processSealShopping());
+    
+    // Add mode toggle listeners
+    document.querySelectorAll('input[name="shoppingMode"]').forEach(radio => {
+      radio.addEventListener("change", (e) => {
+        const isNormalMode = e.target.value === "normal";
+        document.getElementById("normalModeUI").style.display = isNormalMode ? "block" : "none";
+        document.getElementById("sealModeUI").style.display = isNormalMode ? "none" : "block";
+        document.querySelector(".optimize-controls").style.display = isNormalMode ? "block" : "none";
+        document.getElementById("makeplaceDescription").style.display = isNormalMode ? "block" : "none";
+        document.getElementById("sealDescription").style.display = isNormalMode ? "none" : "block";
+        document.getElementById("output").innerHTML = "";
+      });
+    });
   }
 
   showLoading() {
@@ -207,116 +237,148 @@ class MarketShopper {
       }
     }
 
-    // Process all listings to find best prices with optimization
+    // Process all listings to find best prices
+    if (document.getElementById("optimizeTravel").checked) {
+      return this.optimizeForTravel(items, results);
+    } else {
+      return this.findCheapestPrices(items, results);
+    }
+  }
+
+  findCheapestPrices(items, results) {
     const bestPrices = new Map();
-    const threshold = document.getElementById("optimizeTravel").checked ? document.getElementById("priceThreshold").value / 100 : 0;
 
     items.forEach((item, itemId) => {
       const allListings = [];
-      const listingsByWorld = new Map(); // world -> listings
 
-      // Gather and organize all listings by world
+      // Gather all listings
       results.forEach((data, datacenter) => {
         if (data.items[itemId]?.listings) {
           data.items[itemId].listings.forEach((listing) => {
-            const listingInfo = {
+            allListings.push({
               price: listing.pricePerUnit,
               world: listing.worldName,
               datacenter: datacenter,
-            };
-            allListings.push(listingInfo);
-
-            if (!listingsByWorld.has(listing.worldName)) {
-              listingsByWorld.set(listing.worldName, []);
-            }
-            listingsByWorld.get(listing.worldName).push(listingInfo);
+            });
           });
         }
       });
 
-      // Sort all listings by price
+      // Sort by price and take the cheapest
+      allListings.sort((a, b) => a.price - b.price);
+      
+      if (allListings.length > 0) {
+        bestPrices.set(itemId, allListings.slice(0, item.quantity));
+      }
+    });
+
+    return { items, bestPrices };
+  }
+
+  optimizeForTravel(items, results) {
+    const bestPrices = new Map();
+    const gilThreshold = parseInt(document.getElementById("gilThreshold").value);
+    const priceThreshold = document.getElementById("priceThreshold").value / 100;
+    const worldsVisited = new Set(); // Track worlds we're already visiting
+
+    items.forEach((item, itemId) => {
+      const allListings = [];
+
+      // Gather all listings for this item
+      results.forEach((data, datacenter) => {
+        if (data.items[itemId]?.listings) {
+          data.items[itemId].listings.forEach((listing) => {
+            allListings.push({
+              price: listing.pricePerUnit,
+              world: listing.worldName,
+              datacenter: datacenter,
+            });
+          });
+        }
+      });
+
+      // Sort by price
       allListings.sort((a, b) => a.price - b.price);
 
       if (allListings.length === 0) {
         return;
       }
 
-      const neededQuantity = item.quantity;
       const selectedListings = [];
+      let remainingQuantity = item.quantity;
       const cheapestPrice = allListings[0].price;
 
-      if (document.getElementById("optimizeTravel").checked) {
-        // Optimization mode
-        let remainingQuantity = neededQuantity;
+      // Always take the absolute cheapest first
+      selectedListings.push(allListings[0]);
+      worldsVisited.add(allListings[0].world);
+      remainingQuantity--;
+      allListings.splice(0, 1);
 
-        while (remainingQuantity > 0 && allListings.length > 0) {
-          // Sort remaining listings by price again to ensure we always get the current cheapest
-          allListings.sort((a, b) => a.price - b.price);
+      // For remaining quantity
+      while (remainingQuantity > 0 && allListings.length > 0) {
+        let bestListing = null;
+        let bestIndex = -1;
 
-          // Get the current cheapest listing
-          const cheapestListing = allListings[0];
-          selectedListings.push(cheapestListing);
-          remainingQuantity--;
-
-          // Remove the used listing
-          allListings.splice(0, 1);
-
-          // If we still need more items, filter the remaining listings
-          if (remainingQuantity > 0) {
-            // Find all listings within threshold of the cheapest price
-            const acceptableListings = allListings.filter((listing) => {
-              // If the item's cheapest price is below gil threshold, stay in same world
-              if (cheapestListing.price < parseInt(document.getElementById("gilThreshold").value)) {
-                return listing.world === cheapestListing.world;
-              }
-
-              // For expensive items, check percentage threshold
-              const priceIncrease = (listing.price - cheapestListing.price) / cheapestListing.price;
-              const percentThreshold = document.getElementById("priceThreshold").value / 100;
-              return priceIncrease <= percentThreshold;
-            });
-
-            if (acceptableListings.length > 0) {
-              // Group acceptable listings by world
-              const worldGroups = new Map();
-              acceptableListings.forEach((listing) => {
-                if (!worldGroups.has(listing.world)) {
-                  worldGroups.set(listing.world, []);
-                }
-                worldGroups.get(listing.world).push(listing);
-              });
-
-              // Prefer the world with the most listings within threshold
-              let bestWorld = null;
-              let maxListings = 0;
-
-              worldGroups.forEach((listings, world) => {
-                if (listings.length > maxListings) {
-                  maxListings = listings.length;
-                  bestWorld = world;
-                }
-              });
-
-              if (bestWorld) {
-                const worldListings = worldGroups.get(bestWorld).sort((a, b) => a.price - b.price);
-                const toAdd = Math.min(worldListings.length, remainingQuantity);
-                selectedListings.push(...worldListings.slice(0, toAdd));
-                remainingQuantity -= toAdd;
-
-                // Remove used listings from allListings
-                worldListings.slice(0, toAdd).forEach((usedListing) => {
-                  const index = allListings.findIndex((l) => l.world === usedListing.world && l.price === usedListing.price);
-                  if (index !== -1) allListings.splice(index, 1);
-                });
-              }
+        // For cheap items (< gilThreshold), strongly prefer worlds we're already visiting
+        if (cheapestPrice < gilThreshold) {
+          // First check if we can get it from a world we're already visiting
+          for (let i = 0; i < allListings.length; i++) {
+            if (worldsVisited.has(allListings[i].world)) {
+              bestListing = allListings[i];
+              bestIndex = i;
+              break;
             }
-            // If no acceptable listings found, the loop will continue
-            // and find the next cheapest listing in any world
+          }
+          
+          // If not found in visited worlds, just take the cheapest
+          if (!bestListing) {
+            bestListing = allListings[0];
+            bestIndex = 0;
+          }
+        } else {
+          // For expensive items (>= gilThreshold), consider price threshold
+          
+          // First, check worlds we're already visiting
+          let bestVisitedWorldListing = null;
+          let bestVisitedWorldIndex = -1;
+          let bestVisitedWorldPrice = Infinity;
+          
+          for (let i = 0; i < allListings.length; i++) {
+            if (worldsVisited.has(allListings[i].world) && allListings[i].price < bestVisitedWorldPrice) {
+              bestVisitedWorldListing = allListings[i];
+              bestVisitedWorldIndex = i;
+              bestVisitedWorldPrice = allListings[i].price;
+            }
+          }
+          
+          // Check if the cheapest overall is worth traveling for
+          const cheapestOverall = allListings[0];
+          
+          if (bestVisitedWorldListing) {
+            // We have an option in a world we're already visiting
+            const priceDiff = (bestVisitedWorldPrice - cheapestOverall.price) / cheapestOverall.price;
+            
+            if (priceDiff <= priceThreshold) {
+              // The price difference is small enough, stay in the visited world
+              bestListing = bestVisitedWorldListing;
+              bestIndex = bestVisitedWorldIndex;
+            } else {
+              // Price difference is too large, go to the cheaper world
+              bestListing = cheapestOverall;
+              bestIndex = 0;
+            }
+          } else {
+            // No options in visited worlds, take the cheapest
+            bestListing = cheapestOverall;
+            bestIndex = 0;
           }
         }
-      } else {
-        // No optimization - just take the cheapest prices regardless of world
-        selectedListings.push(...allListings.slice(0, neededQuantity));
+
+        // Add the selected listing
+        selectedListings.push(bestListing);
+        worldsVisited.add(bestListing.world);
+        remainingQuantity--;
+        allListings.splice(bestIndex, 1);
       }
 
       if (selectedListings.length > 0) {
@@ -333,15 +395,15 @@ class MarketShopper {
 
     // Create tabs
     const tabsContainer = document.createElement("div");
-    tabsContainer.style.cssText = "margin: 20px 0; border-bottom: 1px solid #ddd;";
+    tabsContainer.style.cssText = "margin: 20px 0; border-bottom: 1px solid #4a4a4a;";
 
     const marketTab = document.createElement("button");
     marketTab.textContent = "Market Items";
-    marketTab.style.cssText = "padding: 10px 20px; margin-right: 10px; border: none; background: #4caf50; color: white; cursor: pointer; border-radius: 4px 4px 0 0;";
+    marketTab.style.cssText = "padding: 10px 20px; margin-right: 10px; border: none; background: #2d7a31; color: white; cursor: pointer; border-radius: 4px 4px 0 0;";
 
     const npcTab = document.createElement("button");
     npcTab.textContent = "NPC Items";
-    npcTab.style.cssText = "padding: 10px 20px; border: none; background: #ddd; color: black; cursor: pointer; border-radius: 4px 4px 0 0;";
+    npcTab.style.cssText = "padding: 10px 20px; border: none; background: #3a3a3a; color: #b0b0b0; cursor: pointer; border-radius: 4px 4px 0 0;";
 
     tabsContainer.appendChild(marketTab);
     tabsContainer.appendChild(npcTab);
@@ -558,19 +620,19 @@ class MarketShopper {
 
     // Tab switching logic
     marketTab.addEventListener("click", () => {
-      marketTab.style.background = "#4caf50";
+      marketTab.style.background = "#2d7a31";
       marketTab.style.color = "white";
-      npcTab.style.background = "#ddd";
-      npcTab.style.color = "black";
+      npcTab.style.background = "#3a3a3a";
+      npcTab.style.color = "#b0b0b0";
       marketContent.style.display = "block";
       npcContent.style.display = "none";
     });
 
     npcTab.addEventListener("click", () => {
-      npcTab.style.background = "#4caf50";
+      npcTab.style.background = "#2d7a31";
       npcTab.style.color = "white";
-      marketTab.style.background = "#ddd";
-      marketTab.style.color = "black";
+      marketTab.style.background = "#3a3a3a";
+      marketTab.style.color = "#b0b0b0";
       marketContent.style.display = "none";
       npcContent.style.display = "block";
     });
@@ -584,6 +646,230 @@ class MarketShopper {
       console.error("Error loading NPC items:", error);
       this.npcItems = {};
     }
+  }
+
+  async loadItemNames() {
+    try {
+      const response = await fetch("items.json");
+      this.itemNames = await response.json();
+    } catch (error) {
+      console.error("Error loading item names:", error);
+      this.itemNames = {};
+    }
+  }
+
+  generateGCItemIds() {
+    const itemIds = [];
+    for (const range of this.gcItemRanges) {
+      for (let i = range.start; i <= range.end; i++) {
+        itemIds.push(i);
+      }
+    }
+    return itemIds;
+  }
+
+  async processSealShopping() {
+    const selectedDatacenters = Array.from(document.querySelectorAll('input[name="datacenter"]:checked')).map((cb) => cb.value);
+    const priceThreshold = parseInt(document.getElementById("sealPriceThreshold").value);
+
+    if (selectedDatacenters.length === 0) {
+      alert("Please select at least one data center");
+      return;
+    }
+
+    try {
+      this.showLoading();
+      const itemIds = this.generateGCItemIds();
+      const results = await this.fetchSealShoppingPrices(itemIds, selectedDatacenters);
+      const analyzedData = this.analyzeSealShoppingData(results, priceThreshold);
+      this.displaySealShoppingResults(analyzedData, priceThreshold);
+    } catch (error) {
+      console.error("Error processing seal shopping:", error);
+      alert("Error processing seal shopping. Please check console for details.");
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  async fetchSealShoppingPrices(itemIds, datacenters) {
+    const results = new Map();
+    const BATCH_SIZE = 100; // API supports up to 100 items per request
+    const MAX_CONCURRENT = 4; // Reduced concurrent connections for seal shopping
+    const RATE_LIMIT = 25;
+    const MIN_DELAY = 1000 / RATE_LIMIT;
+    const LISTINGS_PER_ITEM = 10; // Fetch up to 10 listings per item to find all under threshold
+
+    // Create batches of item IDs
+    const itemBatches = [];
+    for (let i = 0; i < itemIds.length; i += BATCH_SIZE) {
+      itemBatches.push(itemIds.slice(i, i + BATCH_SIZE));
+    }
+
+    // Process each datacenter
+    for (const dc of datacenters) {
+      results.set(dc, new Map());
+      
+      // Process batches with rate limiting
+      for (let i = 0; i < itemBatches.length; i++) {
+        const batch = itemBatches[i];
+        const itemIdsString = batch.join(",");
+        const url = `https://universalis.app/api/v2/${dc}/${itemIdsString}?listings=${LISTINGS_PER_ITEM}&entries=0`;
+        
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const data = await response.json();
+          
+          // Store results for each item
+          Object.entries(data.items).forEach(([itemId, itemData]) => {
+            if (itemData.listings && itemData.listings.length > 0) {
+              results.get(dc).set(itemId, itemData.listings);
+            }
+          });
+        } catch (error) {
+          console.error(`Error fetching batch for ${dc}:`, error);
+        }
+        
+        // Rate limiting delay
+        await new Promise((resolve) => setTimeout(resolve, MIN_DELAY));
+      }
+    }
+
+    return results;
+  }
+
+  analyzeSealShoppingData(results, priceThreshold) {
+    const worldData = new Map(); // world -> { datacenter, itemGroups: Map<itemName, {totalQuantity, maxPrice}> }
+    
+    // Process all datacenters and aggregate by world
+    results.forEach((items, datacenter) => {
+      items.forEach((listings, itemId) => {
+        const itemName = this.itemNames[itemId]?.en || `Item ${itemId}`;
+        
+        listings.forEach((listing) => {
+          if (listing.pricePerUnit <= priceThreshold) {
+            const worldName = listing.worldName;
+            
+            if (!worldData.has(worldName)) {
+              worldData.set(worldName, {
+                datacenter: datacenter,
+                itemGroups: new Map()
+              });
+            }
+            
+            const worldInfo = worldData.get(worldName);
+            
+            // Group by item name and track quantity and max price
+            if (!worldInfo.itemGroups.has(itemName)) {
+              worldInfo.itemGroups.set(itemName, {
+                totalQuantity: 0,
+                maxPrice: 0
+              });
+            }
+            
+            const itemGroup = worldInfo.itemGroups.get(itemName);
+            itemGroup.totalQuantity += listing.quantity;
+            itemGroup.maxPrice = Math.max(itemGroup.maxPrice, listing.pricePerUnit);
+          }
+        });
+      });
+    });
+    
+    // Convert to array and calculate scores
+    const sortedWorlds = Array.from(worldData.entries())
+      .map(([world, data]) => {
+        // Convert item groups to array
+        const items = Array.from(data.itemGroups.entries())
+          .map(([name, info]) => ({ 
+            name, 
+            quantity: info.totalQuantity,
+            maxPrice: info.maxPrice
+          }))
+          .sort((a, b) => {
+            // Sort by quantity first (higher first), then by name
+            if (a.quantity !== b.quantity) {
+              return b.quantity - a.quantity;
+            }
+            return a.name.localeCompare(b.name);
+          });
+        
+        // Calculate total quantity and unique item count
+        const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+        const uniqueItemCount = items.length;
+        
+        return {
+          world: world,
+          datacenter: data.datacenter,
+          uniqueItemCount: uniqueItemCount,
+          totalQuantity: totalQuantity,
+          items: items,
+          // Score based on both variety and quantity
+          score: uniqueItemCount * 1000 + totalQuantity
+        };
+      })
+      .sort((a, b) => b.score - a.score);
+    
+    return sortedWorlds.slice(0, 5); // Return top 5 worlds
+  }
+
+  displaySealShoppingResults(analyzedData, priceThreshold) {
+    const output = document.getElementById("output");
+    output.innerHTML = "";
+
+    if (analyzedData.length === 0) {
+      output.innerHTML = `<div class="summary-section"><p>No items found under ${priceThreshold.toLocaleString()} gil.</p></div>`;
+      return;
+    }
+
+    // Create summary section
+    const summaryDiv = document.createElement("div");
+    summaryDiv.className = "summary-section";
+    summaryDiv.innerHTML = `
+      <h2>Top Worlds for Grand Company Turn-ins Under ${priceThreshold.toLocaleString()} gil</h2>
+      <p class="timestamp">Results generated at: ${new Date().toLocaleString()}</p>
+    `;
+    output.appendChild(summaryDiv);
+
+    // Display each world's results
+    analyzedData.forEach((worldData, index) => {
+      const worldDiv = document.createElement("div");
+      worldDiv.className = "datacenter-results";
+      worldDiv.style.marginBottom = "20px";
+
+      const headerDiv = document.createElement("div");
+      headerDiv.className = "datacenter-header";
+      headerDiv.innerHTML = `
+        <div class="header-content">
+          <span class="collapse-icon">▼</span>
+          <h2>#${index + 1}: ${worldData.world} (${worldData.datacenter})</h2>
+          <span class="datacenter-total">${worldData.uniqueItemCount} unique items (${worldData.totalQuantity} total) under ${priceThreshold.toLocaleString()} gil</span>
+        </div>
+      `;
+
+      const contentDiv = document.createElement("div");
+      contentDiv.className = "datacenter-content";
+      contentDiv.innerHTML = `
+        <div class="world-card" style="margin: 10px;">
+          <div class="items-list">
+            ${worldData.items.map(item => 
+              `<div class="item-entry">${item.quantity}× ${item.name} - under ${item.maxPrice.toLocaleString()} gil</div>`
+            ).join("")}
+          </div>
+        </div>
+      `;
+
+      worldDiv.appendChild(headerDiv);
+      worldDiv.appendChild(contentDiv);
+      output.appendChild(worldDiv);
+
+      // Add collapse functionality
+      headerDiv.addEventListener("click", () => {
+        contentDiv.style.display = contentDiv.style.display === "none" ? "block" : "none";
+        headerDiv.querySelector(".collapse-icon").textContent = contentDiv.style.display === "none" ? "▶" : "▼";
+      });
+    });
   }
 }
 
