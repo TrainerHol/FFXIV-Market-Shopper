@@ -243,6 +243,107 @@
       input[type="checkbox"] {
         margin-right: 5px;
       }
+
+      /* Custom file input styling */
+      .file-input-wrapper {
+        position: relative;
+        display: inline-block;
+        margin-right: 15px;
+      }
+
+      .file-input-wrapper input[type="file"] {
+        position: absolute;
+        left: -9999px;
+        opacity: 0;
+      }
+
+      .file-input-label {
+        display: inline-block;
+        padding: 10px 20px;
+        background: linear-gradient(135deg, #2d7a31 0%, #35923a 100%);
+        color: white;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .file-input-label:hover {
+        background: linear-gradient(135deg, #35923a 0%, #3da642 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      }
+
+      .file-input-label:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .file-selected {
+        background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%) !important;
+      }
+
+      .file-selected:hover {
+        background: linear-gradient(135deg, #1976d2 0%, #1e88e5 100%) !important;
+      }
+
+      /* Enhanced button styling */
+      button {
+        padding: 10px 20px;
+        background: linear-gradient(135deg, #2d7a31 0%, #35923a 100%);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-left: 10px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        font-weight: 500;
+      }
+
+      button:hover {
+        background: linear-gradient(135deg, #35923a 0%, #3da642 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      }
+
+      button:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      /* Enhanced input styling */
+      input[type="number"] {
+        padding: 8px 12px;
+        border: 2px solid #4a4a4a;
+        border-radius: 6px;
+        background-color: #3a3a3a;
+        color: #e0e0e0;
+        transition: all 0.3s ease;
+      }
+
+      input[type="number"]:focus {
+        outline: none;
+        border-color: #2d7a31;
+        box-shadow: 0 0 0 3px rgba(45, 122, 49, 0.2);
+      }
+
+      /* Enhanced radio/checkbox styling */
+      input[type="radio"], input[type="checkbox"] {
+        margin-right: 8px;
+        transform: scale(1.2);
+      }
+
+      /* Add some subtle animations to containers */
+      .region-select, .file-input, .seal-shopping-ui, .mode-toggle {
+        transition: all 0.3s ease;
+      }
+
+      .region-select:hover, .file-input:hover, .seal-shopping-ui:hover {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+        transform: translateY(-1px);
+      }
     </style>
   </head>
   <body>
@@ -263,12 +364,14 @@
         Seal Shopping
       </label>
 
-      <div id="makeplaceDescription" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #3a3a3a">
-        <p>Upload your .json and get an automatically generated shopping list of best prices across multiple data centers</p>
-      </div>
+      <div id="descriptionContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #3a3a3a">
+        <div id="makeplaceDescription">
+          <p>Upload your .json and get an automatically generated shopping list of best prices across multiple data centers</p>
+        </div>
 
-      <div id="sealDescription" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #3a3a3a">
-        <p>Find the worlds with the most Grand Company turn-in gear available under your price threshold.</p>
+        <div id="sealDescription" style="display: none">
+          <p>Find the worlds with the most Grand Company turn-in gear available under your price threshold.</p>
+        </div>
       </div>
     </div>
 
@@ -278,8 +381,13 @@
     </div>
 
     <div class="file-input" id="normalModeUI">
-      <input type="file" id="fileInput" accept=".json" />
-      <button id="processButton">Process</button>
+      <div class="file-input-wrapper">
+        <input type="file" id="fileInput" accept=".json" />
+        <label for="fileInput" class="file-input-label" id="fileInputLabel">
+          📁 Choose JSON File
+        </label>
+      </div>
+      <button id="processButton">🚀 Process</button>
     </div>
 
     <div class="seal-shopping-ui" id="sealModeUI" style="display: none; margin: 20px 0; padding: 15px; background: #2a2a2a; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); border: 1px solid #3a3a3a">
@@ -288,11 +396,27 @@
         Show items under:
         <input type="number" id="sealPriceThreshold" value="2000" min="1" style="width: 80px; margin: 0 5px" /> gil
       </label>
-      <button id="sealProcessButton" style="margin-left: 20px">Find Cheap Items</button>
+      <button id="sealProcessButton" style="margin-left: 20px">🔍 Find Cheap Items</button>
     </div>
 
     <div id="output"></div>
 
     <script src="script.js"></script>
+    <script type="module">
+      import autoAnimate from 'https://cdn.jsdelivr.net/npm/@formkit/auto-animate'
+      
+      // Make auto-animate globally available
+      window.autoAnimate = autoAnimate
+      
+      // Apply auto-animate to key elements
+      autoAnimate(document.getElementById('output'))
+      autoAnimate(document.getElementById('descriptionContainer'))
+      autoAnimate(document.getElementById('normalModeUI'))
+      autoAnimate(document.getElementById('sealModeUI'))
+      autoAnimate(document.querySelector('.mode-toggle'))
+      
+      // Apply to datacenter checkboxes container for smooth additions
+      autoAnimate(document.getElementById('datacenterCheckboxes'))
+    </script>
   </body>
 </html>

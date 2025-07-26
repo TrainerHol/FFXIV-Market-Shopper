@@ -83,6 +83,18 @@ class MarketShopper {
     document.getElementById("processButton").addEventListener("click", () => this.processFile());
     document.getElementById("sealProcessButton").addEventListener("click", () => this.processSealShopping());
     
+    // Add file input visual feedback
+    document.getElementById("fileInput").addEventListener("change", (e) => {
+      const label = document.getElementById("fileInputLabel");
+      if (e.target.files.length > 0) {
+        label.textContent = `✅ ${e.target.files[0].name}`;
+        label.classList.add("file-selected");
+      } else {
+        label.textContent = "📁 Choose JSON File";
+        label.classList.remove("file-selected");
+      }
+    });
+    
     // Add mode toggle listeners
     document.querySelectorAll('input[name="shoppingMode"]').forEach(radio => {
       radio.addEventListener("change", (e) => {
@@ -441,6 +453,11 @@ class MarketShopper {
       // Create container for all datacenters
       const container = document.createElement("div");
       container.className = "datacenter-container";
+      
+      // Apply auto-animate to the container for smooth additions
+      if (window.autoAnimate) {
+        window.autoAnimate(container);
+      }
 
       // Display results grouped by datacenter and world
       datacenterGroups.forEach((worlds, datacenter) => {
@@ -470,6 +487,11 @@ class MarketShopper {
         // Create world cards container
         const worldCardsContainer = document.createElement("div");
         worldCardsContainer.className = "world-cards-container";
+        
+        // Apply auto-animate for smooth card additions
+        if (window.autoAnimate) {
+          window.autoAnimate(worldCardsContainer);
+        }
 
         worlds.forEach((items, world) => {
           const worldCard = document.createElement("div");
@@ -850,15 +872,29 @@ class MarketShopper {
 
       const contentDiv = document.createElement("div");
       contentDiv.className = "datacenter-content";
-      contentDiv.innerHTML = `
-        <div class="world-card" style="margin: 10px;">
-          <div class="items-list">
-            ${worldData.items.map(item => 
-              `<div class="item-entry">${item.quantity}× ${item.name} - under ${item.maxPrice.toLocaleString()} gil</div>`
-            ).join("")}
-          </div>
-        </div>
-      `;
+      
+      const worldCard = document.createElement("div");
+      worldCard.className = "world-card";
+      worldCard.style.margin = "10px";
+      
+      const itemsList = document.createElement("div");
+      itemsList.className = "items-list";
+      
+      // Apply auto-animate to items list for smooth item additions
+      if (window.autoAnimate) {
+        window.autoAnimate(itemsList);
+      }
+      
+      // Add all items to the list
+      worldData.items.forEach(item => {
+        const itemEntry = document.createElement("div");
+        itemEntry.className = "item-entry";
+        itemEntry.textContent = `${item.quantity}× ${item.name} - under ${item.maxPrice.toLocaleString()} gil`;
+        itemsList.appendChild(itemEntry);
+      });
+      
+      worldCard.appendChild(itemsList);
+      contentDiv.appendChild(worldCard);
 
       worldDiv.appendChild(headerDiv);
       worldDiv.appendChild(contentDiv);
